@@ -139,11 +139,21 @@ task.spawn(function()
     while task.wait(SAC.Settings.ResetTimer) do
         if not SHIELD_ENABLED then break end
         for p, drawings in pairs(Cache) do
-            for _, obj in pairs(drawings) do obj:Destroy() end
+            if not p or not p.Parent then
+                for _, obj in pairs(drawings) do pcall(function() obj:Destroy() end) end
+                Cache[p] = nil
+            end
         end
-        Cache = {}
     end
 end)
+
+Players.PlayerRemoving:Connect(function(p)
+    if Cache[p] then
+        for _, obj in pairs(Cache[p]) do pcall(function() obj:Destroy() end) end
+        Cache[p] = nil
+    end
+end)
+
 
 
 local Screen = Instance.new("ScreenGui", CoreGui); Screen.Name = "SHIELD_PREMIUM"
@@ -355,7 +365,14 @@ local lastShot = 0
 
 RunService.RenderStepped:Connect(function(dt)
     if not SHIELD_ENABLED then return end
+    
+    if Main.Visible then
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        UserInputService.MouseIconEnabled = true
+    end
+
     FOV_Circle.Visible = (SAC.Combat.Aimbot and SAC.Combat.FOVVisible and not Main.Visible)
+
     FOV_Circle.Radius = SAC.Combat.FOV; FOV_Circle.Position = UserInputService:GetMouseLocation()
     FOV_Circle.Color = SAC.Combat.FOVColorValue
 
@@ -430,9 +447,13 @@ RunService.RenderStepped:Connect(function(dt)
     if target2D and SAC.Combat.Aimbot and not Main.Visible then
         local moveX = (target2D.X - mouseLoc.X) * SAC.Combat.Smoothing
         local moveY = (target2D.Y - mouseLoc.Y) * SAC.Combat.Smoothing
-        if mousemoverel then mousemoverel(moveX, moveY) end
+        
+        if moveX == moveX and moveY == moveY then -- NaN check
+            if mousemoverel then mousemoverel(moveX, moveY) end
+        end
         
         if SAC.Combat.AutoShoot then
+
             local currentDistance = (target2D - mouseLoc).Magnitude
             if currentDistance < 15 and (tick() - lastShot) > SAC.Combat.ShootDelay then
                 if mouse1click then mouse1click() end
