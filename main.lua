@@ -183,8 +183,9 @@ local SidebarLine = Instance.new("Frame", Sidebar); SidebarLine.Size = UDim2.new
 
 local Title = Instance.new("TextLabel", Sidebar); Title.Size = UDim2.new(1, 0, 0, 50); Title.Text = "SHIELD"; Title.Font = "GothamBold"; Title.TextSize = 16; Title.TextColor3 = Color3.new(1,1,1); Title.BackgroundTransparency = 1
 
-local TabButtons = Instance.new("Frame", Sidebar); TabButtons.Size = UDim2.new(1, 0, 1, -60); TabButtons.Position = UDim2.new(0, 0, 0, 60); TabButtons.BackgroundTransparency = 1
+local TabButtons = Instance.new("ScrollingFrame", Sidebar); TabButtons.Size = UDim2.new(1, 0, 1, -60); TabButtons.Position = UDim2.new(0, 0, 0, 60); TabButtons.BackgroundTransparency = 1; TabButtons.CanvasSize = UDim2.new(0,0,0,0); TabButtons.AutomaticCanvasSize = "Y"; TabButtons.ScrollBarThickness = 0
 local TabList = Instance.new("UIListLayout", TabButtons); TabList.Padding = UDim.new(0, 5); TabList.HorizontalAlignment = "Center"
+
 
 local PageContainer = Instance.new("Frame", Main); PageContainer.Size = UDim2.new(1, -175, 1, -20); PageContainer.Position = UDim2.new(0, 170, 0, 10); PageContainer.BackgroundTransparency = 1
 
@@ -285,10 +286,11 @@ end
 
 local P_Combat = CreatePage("Combat")
 local P_Visuals = CreatePage("Visuals")
+local P_Players = CreatePage("Players")
 local P_Move = CreatePage("Movement")
 local P_World = CreatePage("World")
-local P_Players = CreatePage("Players")
 local P_Settings = CreatePage("Settings")
+
 
 -- Scrollable Player List
 local PlayerScroll = Instance.new("ScrollingFrame", P_Players)
@@ -531,85 +533,91 @@ RunService.RenderStepped:Connect(function(dt)
     end
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p == LocalPlayer or SAC.Friends[tostring(p.UserId)] then 
-            if Cache[p] then 
-                for _, v in pairs(Cache[p]) do 
-                    if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end 
-                end 
-            end
-            continue 
-        end
+        local esp = GetESP(p)
         local char = p.Character
+        local id = tostring(p.UserId)
 
-        if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") then
-            local root = char.HumanoidRootPart; local head = char.Head
-            local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
-            local esp = GetESP(p)
-
-            if onScreen then
-                local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
-                local h = math.abs(headPos.Y - legPos.Y); local w = h * 0.6
-
-                esp.Box.Visible = SAC.Visuals.Box; esp.Box.Size = Vector2.new(w, h); esp.Box.Position = Vector2.new(pos.X - w/2, headPos.Y)
-                esp.Name.Visible = SAC.Visuals.Name; esp.Name.Text = p.Name; esp.Name.Position = Vector2.new(pos.X, headPos.Y - 15)
-                
-                esp.Line.Visible = SAC.Visuals.Line
-                esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                esp.Line.To = Vector2.new(pos.X, pos.Y + (h/2)) 
-
-                -- Skeleton ESP
-                if SAC.Visuals.Skeleton then
-                    local rig = char:FindFirstChild("UpperTorso") and R15_K or R6_K
-                    for i, bone in pairs(rig) do
-                        local b1, b2 = char:FindFirstChild(bone[1]), char:FindFirstChild(bone[2])
-                        local line = esp.Skeleton[i]
-                        if b1 and b2 and line then
-                            local p1, o1 = Camera:WorldToViewportPoint(b1.Position)
-                            local p2, o2 = Camera:WorldToViewportPoint(b2.Position)
-                            if o1 and o2 then
-                                line.Visible = true
-                                line.From = Vector2.new(p1.X, p1.Y)
-                                line.To = Vector2.new(p2.X, p2.Y)
-                                line.Color = SAC.Visuals.EnemyColorValue
-                            else line.Visible = false end
-                        elseif line then line.Visible = false end
-                    end
-                else
-                    for _, l in pairs(esp.Skeleton) do l.Visible = false end
-                end
-
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if SAC.Visuals.Health and hum then
-                    esp.HealthBG.Visible = true; esp.Health.Visible = true
-                    esp.HealthBG.Size = Vector2.new(2, h); esp.HealthBG.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y)
-                    local hp = math.clamp(hum.Health/hum.MaxHealth, 0, 1)
-                    esp.Health.Size = Vector2.new(2, hp*h); esp.Health.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y + (h - (hp*h))); esp.Health.Color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), hp)
-                else esp.HealthBG.Visible = false; esp.Health.Visible = false end
-
-                if SAC.Combat.Aimbot and not Main.Visible and aim_key_pressed then
-                    local sPos, sVis = Camera:WorldToViewportPoint(head.Position)
-                    local mag = (Vector2.new(sPos.X, sPos.Y) - mouseLoc).Magnitude
-                    
-                    if mag < minDist then
-                        if SAC.Combat.WallCheck then
-                            if IsVisible(head, char) then
-                                target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag
-                            end
-                        else
-                            target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag
-                        end
-                    end
-                end
-            else 
-                for _, v in pairs(esp) do if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end end 
+        if p == LocalPlayer or SAC.Friends[id] or not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Head") then
+            for _, v in pairs(esp) do
+                if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end
             end
-        else 
-            if Cache[p] then 
-                for _, v in pairs(Cache[p]) do if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end end 
-            end 
+            continue
+        end
+
+        local root = char.HumanoidRootPart
+        local head = char.Head
+        local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+
+        if onScreen then
+            local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+            local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+            local h = math.abs(headPos.Y - legPos.Y)
+            local w = h * 0.6
+            local color = SAC.Visuals.EnemyColor and SAC.Visuals.EnemyColorValue or Color3.new(1,1,1)
+
+            -- Box
+            esp.Box.Visible = SAC.Visuals.Box
+            esp.Box.Size = Vector2.new(w, h)
+            esp.Box.Position = Vector2.new(pos.X - w/2, headPos.Y)
+            esp.Box.Color = color
+
+            -- Name
+            esp.Name.Visible = SAC.Visuals.Name
+            esp.Name.Text = p.Name
+            esp.Name.Position = Vector2.new(pos.X, headPos.Y - 15)
+            esp.Name.Color = color
+            
+            -- Line
+            esp.Line.Visible = SAC.Visuals.Line
+            esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+            esp.Line.To = Vector2.new(pos.X, pos.Y + (h / 2)) 
+            esp.Line.Color = color
+
+            -- Health
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if SAC.Visuals.Health and hum then
+                esp.HealthBG.Visible = true; esp.Health.Visible = true
+                esp.HealthBG.Size = Vector2.new(2, h); esp.HealthBG.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y)
+                local hp = math.clamp(hum.Health/hum.MaxHealth, 0, 1)
+                esp.Health.Size = Vector2.new(2, hp * h); esp.Health.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y + (h - (hp * h))); esp.Health.Color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), hp)
+            else esp.HealthBG.Visible = false; esp.Health.Visible = false end
+
+            -- Skeleton
+            if SAC.Visuals.Skeleton then
+                local rig = char:FindFirstChild("UpperTorso") and R15_K or R6_K
+                for i, bone in pairs(rig) do
+                    local b1, b2 = char:FindFirstChild(bone[1]), char:FindFirstChild(bone[2])
+                    local line = esp.Skeleton[i]
+                    if b1 and b2 and line then
+                        local p1, o1 = Camera:WorldToViewportPoint(b1.Position)
+                        local p2, o2 = Camera:WorldToViewportPoint(b2.Position)
+                        if o1 and o2 then
+                            line.Visible = true; line.From = Vector2.new(p1.X, p1.Y); line.To = Vector2.new(p2.X, p2.Y); line.Color = color
+                        else line.Visible = false end
+                    elseif line then line.Visible = false end
+                end
+            else
+                for _, l in pairs(esp.Skeleton) do l.Visible = false end
+            end
+
+            -- Aimbot Target Check
+            if SAC.Combat.Aimbot and not Main.Visible and aim_key_pressed then
+                local sPos, sVis = Camera:WorldToViewportPoint(head.Position)
+                local mag = (Vector2.new(sPos.X, sPos.Y) - mouseLoc).Magnitude
+                if mag < minDist then
+                    if SAC.Combat.WallCheck then
+                        if IsVisible(head, char) then target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag end
+                    else target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag end
+                end
+            end
+        else
+            for _, v in pairs(esp) do
+                if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end
+            end
         end
     end
+
+
 
     if target2D and SAC.Combat.Aimbot and not Main.Visible and aim_key_pressed then
 
