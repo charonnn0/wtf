@@ -7,16 +7,10 @@ local Camera = workspace.CurrentCamera
 local CoreGui = game:GetService("CoreGui")
 local Lighting = game:GetService("Lighting")
 
--- // Performance Constants
-local TICK_RATE = 1/30 -- Update visuals at 30 FPS instead of 60+
+-- // Performance Constants (Ultra Lite)
+local TICK_RATE = 1/20 -- Low overhead (20Hz visuals)
 local lastTick = 0
-local HIGHLIGHT_LIMIT = 20 -- Reduced to ensure stability
-
--- // Registry for Centralized RGB Updates (Saves CPU)
-local RGB_REGISTRY = {
-    Controls = {}, -- { {Obj, Prop, ActiveCheck} }
-    ESP = {}       -- { {Player, Drawings} }
-}
+local MAIN_COLOR = Color3.fromRGB(140, 100, 255)
 
 -- // Setup Helpers
 local function GetGui()
@@ -37,39 +31,24 @@ local SAC = {
     },
     Visuals = {
         Box = false, Name = false, Health = false, Chams = false, 
-        RGB_ESP = false, RGB_Chams = false, SelfRGB = false, 
-        PerformanceMode = true, -- Default to TRUE for "FPS Dostu"
-        Colors = { Main = Color3.fromRGB(130, 100, 255), Enemy = Color3.fromRGB(255, 50, 50) }
+        SelfRGB = false, 
+        PerformanceMode = true,
+        Colors = { Main = MAIN_COLOR, Enemy = Color3.fromRGB(255, 50, 50) }
     },
     Movement = { Speed = 16, Jump = 50, Fly = false, FlySpeed = 50, Noclip = false, InfiniteJump = false },
     World = { FullBright = false, RGB_Sky = false },
-    ActiveState = { MenuOpen = true, RGB = Color3.new(1, 1, 1), Target = nil }
+    ActiveState = { MenuOpen = true, RGB = MAIN_COLOR, Target = nil }
 }
 
--- // ONE CENTRAL LOOP FOR ALL RGB CALCULATIONS
+-- // Ultra-Minimal RGB Loop (Only for Title)
 task.spawn(function()
-    while task.wait(TICK_RATE) do
-        local hue = tick() % 6 / 6
+    while task.wait(0.05) do
+        local hue = tick() % 10 / 10
         SAC.ActiveState.RGB = Color3.fromHSV(hue, 0.7, 1)
-
-        -- Update Menu Colors ONLY if Menu is Open
-        if SAC.ActiveState.MenuOpen then
-            for _, entry in pairs(RGB_REGISTRY.Controls) do
-                local obj, prop, check = entry[1], entry[2], entry[3]
-                if not check or check() then
-                    obj[prop] = SAC.ActiveState.RGB
-                end
-            end
-        end
-
-        -- Update Skybox if Active
-        if SAC.World.RGB_Sky then
-            Lighting.OutdoorAmbient = SAC.ActiveState.RGB
-        end
     end
 end)
 
--- // UI Library (Optimized for performance)
+-- // UI Library (Ultra Lite - Static Theme)
 local Library = {}
 do
     function Library:Create(name, props, children)
@@ -83,26 +62,26 @@ do
         Screen.Name = RandomString(12); Screen.ResetOnSpawn = false
 
         local Main = Library:Create("Frame", {
-            Name = "Main", Parent = Screen, Size = UDim2.new(0, 500, 0, 340),
-            Position = UDim2.new(0.5, -250, 0.5, -170), BackgroundColor3 = Color3.fromRGB(10, 10, 12),
+            Name = "Main", Parent = Screen, Size = UDim2.new(0, 480, 0, 320),
+            Position = UDim2.new(0.5, -240, 0.5, -160), BackgroundColor3 = Color3.fromRGB(10, 10, 12),
             BorderSizePixel = 0, ClipsDescendants = true
         }, {
             Library:Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
-            Library:Create("UIStroke", {Name = "Glow", Color = SAC.ActiveState.RGB, Thickness = 2, ApplyStrokeMode = "Border"})
+            Library:Create("UIStroke", {Color = MAIN_COLOR, Thickness = 2, ApplyStrokeMode = "Border"})
         })
-        
-        table.insert(RGB_REGISTRY.Controls, {Main.Glow, "Color"})
 
         local Sidebar = Library:Create("Frame", {
-            Name = "Sidebar", Parent = Main, Size = UDim2.new(0, 130, 1, 0),
-            BackgroundColor3 = Color3.fromRGB(15, 15, 20), BorderSizePixel = 0
+            Name = "Sidebar", Parent = Main, Size = UDim2.new(0, 120, 1, 0),
+            BackgroundColor3 = Color3.fromRGB(14, 14, 18), BorderSizePixel = 0
         }, { Library:Create("UICorner", {CornerRadius = UDim.new(0, 8)}) })
 
         local Title = Library:Create("TextLabel", {
             Parent = Sidebar, Size = UDim2.new(1, 0, 0, 50), Text = title,
-            Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = Color3.new(1,1,1), BackgroundTransparency = 1
+            Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = MAIN_COLOR, BackgroundTransparency = 1
         })
-        table.insert(RGB_REGISTRY.Controls, {Title, "TextColor3"})
+        
+        -- ONLY THE TITLE IS RGB (SLOW)
+        RunService.Heartbeat:Connect(function() if Main.Visible then Title.TextColor3 = SAC.ActiveState.RGB end end)
 
         local TabContainer = Library:Create("ScrollingFrame", {
             Parent = Sidebar, Position = UDim2.new(0, 0, 0, 50), Size = UDim2.new(1, 0, 1, -60),
@@ -110,7 +89,7 @@ do
         }, { Library:Create("UIListLayout", {Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center}) })
 
         local Pages = Library:Create("Frame", {
-            Parent = Main, Position = UDim2.new(0, 140, 0, 10), Size = UDim2.new(1, -150, 1, -20), BackgroundTransparency = 1
+            Parent = Main, Position = UDim2.new(0, 130, 0, 10), Size = UDim2.new(1, -140, 1, -20), BackgroundTransparency = 1
         })
 
         local Tabs = {}
@@ -123,21 +102,19 @@ do
             }, { Library:Create("UIListLayout", {Padding = UDim.new(0, 6)}) })
 
             local Button = Library:Create("TextButton", {
-                Parent = TabContainer, Size = UDim2.new(0.9, 0, 0, 32),
-                BackgroundColor3 = First and Color3.fromRGB(30, 30, 40) or Color3.fromRGB(20, 20, 25),
-                Text = name, TextColor3 = First and Color3.new(1,1,1) or Color3.fromRGB(150, 150, 160),
-                Font = Enum.Font.GothamMedium, TextSize = 13, AutoButtonColor = false
+                Parent = TabContainer, Size = UDim2.new(0.9, 0, 0, 30),
+                BackgroundColor3 = First and Color3.fromRGB(25, 25, 35) or Color3.fromRGB(18, 18, 22),
+                Text = name, TextColor3 = First and Color3.new(1,1,1) or Color3.fromRGB(140, 140, 150),
+                Font = Enum.Font.GothamMedium, TextSize = 12, AutoButtonColor = false
             }, { 
                 Library:Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-                Library:Create("UIStroke", {Name = "B", Color = SAC.ActiveState.RGB, Thickness = 0.8, Enabled = First})
+                Library:Create("UIStroke", {Color = MAIN_COLOR, Thickness = 0.8, Enabled = First, Name = "B"})
             })
-            
-            table.insert(RGB_REGISTRY.Controls, {Button.B, "Color", function() return Button.B.Enabled end})
 
             Button.MouseButton1Click:Connect(function()
                 for _, p in pairs(Pages:GetChildren()) do if p:IsA("ScrollingFrame") then p.Visible = false end end
-                for _, b in pairs(TabContainer:GetChildren()) do if b:IsA("TextButton") then b.BackgroundColor3 = Color3.fromRGB(20, 20, 25); b.TextColor3 = Color3.fromRGB(150, 150, 160); b.B.Enabled = false end end
-                Page.Visible = true; Button.BackgroundColor3 = Color3.fromRGB(30, 30, 40); Button.TextColor3 = Color3.new(1,1,1); Button.B.Enabled = true
+                for _, b in pairs(TabContainer:GetChildren()) do if b:IsA("TextButton") then b.BackgroundColor3 = Color3.fromRGB(18, 18, 22); b.TextColor3 = Color3.fromRGB(140, 140, 150); b.B.Enabled = false end end
+                Page.Visible = true; Button.BackgroundColor3 = Color3.fromRGB(25, 25, 35); Button.TextColor3 = Color3.new(1,1,1); Button.B.Enabled = true
             end)
 
             First = false
@@ -145,35 +122,32 @@ do
 
             function Elements:AddToggle(text, callback)
                 local Tgl = Library:Create("Frame", {
-                    Parent = Page, Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = Color3.fromRGB(18, 18, 24),
+                    Parent = Page, Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = Color3.fromRGB(18, 18, 24),
                     BorderSizePixel = 0
                 }, {
                     Library:Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
                     Library:Create("TextLabel", {
                         Size = UDim2.new(1, -50, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = text,
-                        TextColor3 = Color3.fromRGB(200, 200, 210), Font = Enum.Font.Gotham, TextSize = 12,
+                        TextColor3 = Color3.fromRGB(180, 180, 190), Font = Enum.Font.Gotham, TextSize = 12,
                         TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1
                     })
                 })
                 local Box = Library:Create("Frame", {
-                    Parent = Tgl, Position = UDim2.new(1, -38, 0.5, -9), Size = UDim2.new(0, 28, 0, 18),
-                    BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+                    Parent = Tgl, Position = UDim2.new(1, -34, 0.5, -8), Size = UDim2.new(0, 24, 0, 16),
+                    BackgroundColor3 = Color3.fromRGB(25, 25, 30)
                 }, {
-                    Library:Create("UICorner", {CornerRadius = UDim.new(0, 9)}),
+                    Library:Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
                     Library:Create("Frame", {
-                        Name = "I", Position = UDim2.new(0, 2, 0.5, -7), Size = UDim2.new(0, 14, 0, 14),
-                        BackgroundColor3 = Color3.fromRGB(140, 140, 150)
+                        Name = "I", Position = UDim2.new(0, 2, 0.5, -6), Size = UDim2.new(0, 12, 0, 12),
+                        BackgroundColor3 = Color3.fromRGB(120, 120, 130)
                     }, {Library:Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
                 })
 
                 local s = false
-                table.insert(RGB_REGISTRY.Controls, {Box.I, "BackgroundColor3", function() return s end})
-
                 Tgl.InputBegan:Connect(function(i) 
                     if i.UserInputType == Enum.UserInputType.MouseButton1 then 
                         s = not s
-                        TweenService:Create(Box.I, TweenInfo.new(0.2), {Position = s and UDim2.new(0, 12, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)}):Play()
-                        if not s then Box.I.BackgroundColor3 = Color3.fromRGB(140, 140, 150) end
+                        TweenService:Create(Box.I, TweenInfo.new(0.15), {Position = s and UDim2.new(0, 10, 0.5, -6) or UDim2.new(0, 2, 0.5, -6), BackgroundColor3 = s and MAIN_COLOR or Color3.fromRGB(120, 120, 130)}):Play()
                         callback(s)
                     end 
                 end)
@@ -182,31 +156,27 @@ do
 
             function Elements:AddSlider(text, min, max, default, callback)
                 local Sld = Library:Create("Frame", {
-                    Parent = Page, Size = UDim2.new(1, 0, 0, 48), BackgroundColor3 = Color3.fromRGB(18, 18, 24),
+                    Parent = Page, Size = UDim2.new(1, 0, 0, 46), BackgroundColor3 = Color3.fromRGB(18, 18, 24),
                     BorderSizePixel = 0
                 }, {
                     Library:Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
                     Library:Create("TextLabel", {
                         Name = "T", Size = UDim2.new(1, -20, 0, 25), Position = UDim2.new(0, 12, 0, 2),
-                        Text = text .. ": " .. default, TextColor3 = Color3.fromRGB(200, 200, 210),
+                        Text = text .. ": " .. default, TextColor3 = Color3.fromRGB(180, 180, 190),
                         Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1
                     })
                 })
                 local Bg = Library:Create("Frame", {
-                    Parent = Sld, Position = UDim2.new(0, 12, 0.75, -4), Size = UDim2.new(1, -24, 0, 4),
-                    BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+                    Parent = Sld, Position = UDim2.new(0, 12, 0.75, -4), Size = UDim2.new(1, -24, 0, 3),
+                    BackgroundColor3 = Color3.fromRGB(25, 25, 30)
                 }, {
                     Library:Create("UICorner", {CornerRadius = UDim.new(0, 2)}),
-                    Library:Create("Frame", { Name = "F", Size = UDim2.new((default-min)/(max-min), 0, 1, 0), BackgroundColor3 = SAC.ActiveState.RGB }, {Library:Create("UICorner", {CornerRadius = UDim.new(0, 2)})})
+                    Library:Create("Frame", { Name = "F", Size = UDim2.new((default-min)/(max-min), 0, 1, 0), BackgroundColor3 = MAIN_COLOR }, {Library:Create("UICorner", {CornerRadius = UDim.new(0, 2)})})
                 })
-                
-                table.insert(RGB_REGISTRY.Controls, {Bg.F, "BackgroundColor3"})
-
                 local dragging = false
                 local function update()
                     local pos = math.clamp((UserInputService:GetMouseLocation().X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
-                    Bg.F.Size = UDim2.new(pos, 0, 1, 0)
-                    local val = math.floor(min + (max-min)*pos)
+                    Bg.F.Size = UDim2.new(pos, 0, 1, 0); local val = math.floor(min + (max-min)*pos)
                     Sld.T.Text = text .. ": " .. val; callback(val)
                 end
                 Sld.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; update() end end)
@@ -227,10 +197,10 @@ do
     end
 end
 
--- // Feature Initialization
-local Window = Library.New("SHIELD PREMIUM LITE")
+-- // Feature Initialization (Ultra Lite)
+local Window = Library.New("SHIELD ULTRA LITE")
 local Combat = Window:CreateTab("Combat"); local Visuals = Window:CreateTab("Visuals")
-local Movement = Window:CreateTab("Movement"); local World = Window:CreateTab("World")
+local Mov = Window:CreateTab("Movement")
 
 Combat:AddToggle("Master Aimbot", function(v) SAC.Combat.Aimbot = v end)
 Combat:AddSlider("FOV radius", 30, 800, 150, function(v) SAC.Combat.FOV = v end)
@@ -239,77 +209,56 @@ Combat:AddSlider("Smoothing", 1, 100, 5, function(v) SAC.Combat.Smoothing = v/10
 Visuals:AddToggle("Box ESP", function(v) SAC.Visuals.Box = v end)
 Visuals:AddToggle("Names", function(v) SAC.Visuals.Name = v end)
 Visuals:AddToggle("Chams (Highlight)", function(v) SAC.Visuals.Chams = v end)
-Visuals:AddToggle("Self RGB", function(v) SAC.Visuals.SelfRGB = v end)
-Visuals:AddToggle("RGB ESP Mode", function(v) SAC.Visuals.RGB_ESP = v end)
-Visuals:AddToggle("High Performance Mode", function(v) SAC.Visuals.PerformanceMode = v end)
+Visuals:AddToggle("Self RGB (Character)", function(v) SAC.Visuals.SelfRGB = v end)
 
-Movement:AddSlider("Walk Speed", 16, 250, 16, function(v) SAC.Movement.Speed = v end)
-Movement:AddToggle("Fly Mode", function(v) SAC.Movement.Fly = v end)
+Mov:AddSlider("Speed", 16, 250, 16, function(v) SAC.Movement.Speed = v end)
+Mov:AddToggle("Fly", function(v) SAC.Movement.Fly = v end)
 
-World:AddToggle("Full Bright", function(v) SAC.World.FullBright = v end)
-World:AddToggle("RGB Sky (Party)", function(v) SAC.World.RGB_Sky = v end)
-
--- // ULTRA LIGHTWEIGHT ESP & VISUALS
+-- // ULTRA OPTIMIZED CORE LOOP
 local Cache = {}
 local FOV_Circle = Drawing.new("Circle")
-FOV_Circle.Thickness = 1; FOV_Circle.NumSides = 32; FOV_Circle.Visible = false
+FOV_Circle.Thickness = 1; FOV_Circle.NumSides = 24; FOV_Circle.Visible = false; FOV_Circle.Color = MAIN_COLOR
 
 local function GetDrawings(p)
     if Cache[p] then return Cache[p] end
-    local highlight = Instance.new("Highlight", GetGui())
-    highlight.Adornee = p.Character; highlight.Enabled = false
-    local drawings = { B = Drawing.new("Square"), N = Drawing.new("Text"), H = highlight }
-    drawings.N.Center = true; drawings.N.Outline = true; drawings.N.Size = 13
-    Cache[p] = drawings; return drawings
+    local h = Instance.new("Highlight", GetGui()); h.Adornee = p.Character; h.Enabled = false; h.FillColor = MAIN_COLOR
+    local d = { B = Drawing.new("Square"), N = Drawing.new("Text"), H = h }
+    d.N.Center = true; d.N.Outline = true; d.N.Size = 13; d.N.Color = Color3.new(1,1,1); d.B.Color = Color3.new(1,1,1)
+    Cache[p] = d; return d
 end
 
-local selfHigh = Instance.new("Highlight", GetGui()); selfHigh.Enabled = false
+local sHigh = Instance.new("Highlight", GetGui()); sHigh.Enabled = false
 
--- THROTTLED MAIN LOOP (Saves CPU)
 RunService.Heartbeat:Connect(function()
     local now = tick()
-    if (now - lastTick) < (SAC.Visuals.PerformanceMode and 0.05 or 0.01) then return end
+    if (now - lastTick) < 0.05 then return end -- Locked to 20Hz update
     lastTick = now
 
-    -- Self RGB
     if SAC.Visuals.SelfRGB then
-        selfHigh.Enabled = true; selfHigh.Adornee = LocalPlayer.Character
-        selfHigh.FillColor = SAC.ActiveState.RGB
-    else selfHigh.Enabled = false end
+        sHigh.Enabled = true; sHigh.Adornee = LocalPlayer.Character; sHigh.FillColor = SAC.ActiveState.RGB
+    else sHigh.Enabled = false end
 
-    -- FOV
-    FOV_Circle.Visible = (SAC.Combat.Aimbot and SAC.Combat.FOVVisible)
-    FOV_Circle.Radius = SAC.Combat.FOV; FOV_Circle.Position = UserInputService:GetMouseLocation()
-    FOV_Circle.Color = SAC.ActiveState.RGB
+    FOV_Circle.Visible = (SAC.Combat.Aimbot and SAC.Combat.FOVVisible); FOV_Circle.Radius = SAC.Combat.FOV; FOV_Circle.Position = UserInputService:GetMouseLocation()
 
     local mouse = UserInputService:GetMouseLocation()
     local target2D, bestTarg, minDist = nil, nil, SAC.Combat.FOV
-    local activeHigh = 0
 
     for _, p in pairs(Players:GetPlayers()) do
         if p == LocalPlayer then continue end
         local char = p.Character
         if char and char:FindFirstChild("HumanoidRootPart") and char.Humanoid.Health > 0 then
-            local esp = GetDrawings(p)
-            local root = char.HumanoidRootPart
+            local esp = GetDrawings(p); local root = char.HumanoidRootPart
             local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
 
             if onScreen then
                 local dist = (Camera.CFrame.Position - root.Position).Magnitude
-                if dist < 600 then -- Distant cull
-                    local col = SAC.Visuals.RGB_ESP and SAC.ActiveState.RGB or Color3.new(1,1,1)
+                if dist < 500 then
                     local h = math.abs(Camera:WorldToViewportPoint(char.Head.Position + Vector3.new(0, 0.5, 0)).Y - Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0)).Y)
                     local w = h * 0.6
-
-                    if SAC.Visuals.Box then esp.B.Visible = true; esp.B.Size = Vector2.new(w, h); esp.B.Position = Vector2.new(pos.X - w/2, pos.Y - h/2); esp.B.Color = col else esp.B.Visible = false end
-                    if SAC.Visuals.Name then esp.N.Visible = true; esp.N.Text = p.Name; esp.N.Position = Vector2.new(pos.X, pos.Y - h/2 - 15); esp.N.Color = col else esp.N.Visible = false end
-                    
-                    if SAC.Visuals.Chams and activeHigh < HIGHLIGHT_LIMIT then
-                        activeHigh += 1; esp.H.Enabled = true; esp.H.FillColor = SAC.ActiveState.RGB
-                    else esp.H.Enabled = false end
-                else 
-                    esp.B.Visible = false; esp.N.Visible = false; esp.H.Enabled = false 
-                end
+                    if SAC.Visuals.Box then esp.B.Visible = true; esp.B.Size = Vector2.new(w, h); esp.B.Position = Vector2.new(pos.X - w/2, pos.Y - h/2) else esp.B.Visible = false end
+                    if SAC.Visuals.Name then esp.N.Visible = true; esp.N.Text = p.Name; esp.N.Position = Vector2.new(pos.X, pos.Y - h/2 - 15) else esp.N.Visible = false end
+                    esp.H.Enabled = SAC.Visuals.Chams
+                else esp.B.Visible = false; esp.N.Visible = false; esp.H.Enabled = false end
 
                 if (not SAC.ActiveState.MenuOpen) and SAC.Combat.Aimbot then
                     local sPos = Camera:WorldToViewportPoint(char.Head.Position)
@@ -327,7 +276,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- WORLD LOOP
 RunService.Heartbeat:Connect(function()
     if SAC.World.FullBright then Lighting.Ambient = Color3.new(1,1,1) end
     local char = LocalPlayer.Character
