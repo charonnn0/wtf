@@ -534,87 +534,64 @@ RunService.RenderStepped:Connect(function(dt)
 
     for _, p in pairs(Players:GetPlayers()) do
         local esp = GetESP(p)
-        local char = p.Character
         local id = tostring(p.UserId)
 
-        if p == LocalPlayer or SAC.Friends[id] or not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Head") then
-            for _, v in pairs(esp) do
-                if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end
-            end
-            continue
-        end
+        local onScreen = false
+        local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+        local head = p.Character and p.Character:FindFirstChild("Head")
 
-        local root = char.HumanoidRootPart
-        local head = char.Head
-        local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+        if p ~= LocalPlayer and not SAC.Friends[id] and root and head then
+            local pos, vis = Camera:WorldToViewportPoint(root.Position)
+            if vis then
+                onScreen = true
+                local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+                local h = math.abs(headPos.Y - legPos.Y)
+                local w = h * 0.6
+                local color = SAC.Visuals.EnemyColor and SAC.Visuals.EnemyColorValue or Color3.new(1,1,1)
 
-        if onScreen then
-            local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-            local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
-            local h = math.abs(headPos.Y - legPos.Y)
-            local w = h * 0.6
-            local color = SAC.Visuals.EnemyColor and SAC.Visuals.EnemyColorValue or Color3.new(1,1,1)
+                esp.Box.Visible = SAC.Visuals.Box; esp.Box.Size = Vector2.new(w, h); esp.Box.Position = Vector2.new(pos.X - w/2, headPos.Y); esp.Box.Color = color
+                esp.Name.Visible = SAC.Visuals.Name; esp.Name.Text = p.Name; esp.Name.Position = Vector2.new(pos.X, headPos.Y - 15); esp.Name.Color = color
+                esp.Line.Visible = SAC.Visuals.Line; esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y); esp.Line.To = Vector2.new(pos.X, pos.Y + (h / 2)); esp.Line.Color = color
 
-            -- Box
-            esp.Box.Visible = SAC.Visuals.Box
-            esp.Box.Size = Vector2.new(w, h)
-            esp.Box.Position = Vector2.new(pos.X - w/2, headPos.Y)
-            esp.Box.Color = color
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if SAC.Visuals.Health and hum then
+                    esp.HealthBG.Visible = true; esp.Health.Visible = true; esp.HealthBG.Size = Vector2.new(2, h); esp.HealthBG.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y)
+                    local hp = math.clamp(hum.Health/hum.MaxHealth, 0, 1)
+                    esp.Health.Size = Vector2.new(2, hp * h); esp.Health.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y + (h - (hp * h))); esp.Health.Color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), hp)
+                else esp.HealthBG.Visible = false; esp.Health.Visible = false end
 
-            -- Name
-            esp.Name.Visible = SAC.Visuals.Name
-            esp.Name.Text = p.Name
-            esp.Name.Position = Vector2.new(pos.X, headPos.Y - 15)
-            esp.Name.Color = color
-            
-            -- Line
-            esp.Line.Visible = SAC.Visuals.Line
-            esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-            esp.Line.To = Vector2.new(pos.X, pos.Y + (h / 2)) 
-            esp.Line.Color = color
+                if SAC.Visuals.Skeleton then
+                    local rig = p.Character:FindFirstChild("UpperTorso") and R15_K or R6_K
+                    for i, bone in pairs(rig) do
+                        local b1, b2 = p.Character:FindFirstChild(bone[1]), p.Character:FindFirstChild(bone[2])
+                        local line = esp.Skeleton[i]
+                        if b1 and b2 and line then
+                            local p1, o1 = Camera:WorldToViewportPoint(b1.Position)
+                            local p2, o2 = Camera:WorldToViewportPoint(b2.Position)
+                            if o1 and o2 then line.Visible = true; line.From = Vector2.new(p1.X, p1.Y); line.To = Vector2.new(p2.X, p2.Y); line.Color = color else line.Visible = false end
+                        elseif line then line.Visible = false end
+                    end
+                else for _, l in pairs(esp.Skeleton) do l.Visible = false end end
 
-            -- Health
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if SAC.Visuals.Health and hum then
-                esp.HealthBG.Visible = true; esp.Health.Visible = true
-                esp.HealthBG.Size = Vector2.new(2, h); esp.HealthBG.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y)
-                local hp = math.clamp(hum.Health/hum.MaxHealth, 0, 1)
-                esp.Health.Size = Vector2.new(2, hp * h); esp.Health.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y + (h - (hp * h))); esp.Health.Color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), hp)
-            else esp.HealthBG.Visible = false; esp.Health.Visible = false end
-
-            -- Skeleton
-            if SAC.Visuals.Skeleton then
-                local rig = char:FindFirstChild("UpperTorso") and R15_K or R6_K
-                for i, bone in pairs(rig) do
-                    local b1, b2 = char:FindFirstChild(bone[1]), char:FindFirstChild(bone[2])
-                    local line = esp.Skeleton[i]
-                    if b1 and b2 and line then
-                        local p1, o1 = Camera:WorldToViewportPoint(b1.Position)
-                        local p2, o2 = Camera:WorldToViewportPoint(b2.Position)
-                        if o1 and o2 then
-                            line.Visible = true; line.From = Vector2.new(p1.X, p1.Y); line.To = Vector2.new(p2.X, p2.Y); line.Color = color
-                        else line.Visible = false end
-                    elseif line then line.Visible = false end
-                end
-            else
-                for _, l in pairs(esp.Skeleton) do l.Visible = false end
-            end
-
-            -- Aimbot Target Check
-            if SAC.Combat.Aimbot and not Main.Visible and aim_key_pressed then
-                local sPos, sVis = Camera:WorldToViewportPoint(head.Position)
-                local mag = (Vector2.new(sPos.X, sPos.Y) - mouseLoc).Magnitude
-                if mag < minDist then
-                    if SAC.Combat.WallCheck then
-                        if IsVisible(head, char) then target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag end
-                    else target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag end
+                if SAC.Combat.Aimbot and not Main.Visible and aim_key_pressed then
+                    local sPos, sVis = Camera:WorldToViewportPoint(head.Position)
+                    local mag = (Vector2.new(sPos.X, sPos.Y) - mouseLoc).Magnitude
+                    if mag < minDist then
+                        if SAC.Combat.WallCheck then
+                            if IsVisible(head, p.Character) then target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag end
+                        else target2D = Vector2.new(sPos.X, sPos.Y); minDist = mag end
+                    end
                 end
             end
-        else
-            for _, v in pairs(esp) do
-                if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end
-            end
         end
+
+        if not onScreen then
+            esp.Box.Visible = false; esp.Name.Visible = false; esp.Line.Visible = false; esp.HealthBG.Visible = false; esp.Health.Visible = false
+            for _, l in pairs(esp.Skeleton) do l.Visible = false end
+        end
+    end
+
     end
 
 
