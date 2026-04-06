@@ -22,17 +22,19 @@ local SAC = {
         Smoothing = 0.05, 
         FOVVisible = true, 
         FOVColorValue = Color3.fromRGB(255, 255, 255),
+        AimbotKey = Enum.KeyCode.F,
+        AimbotAlwaysActive = false,
         WallCheck = true,
         AutoShoot = false, 
         ShootDelay = 0.2,
         Triggerbot = false
     },
-
     Visuals = {
         Box = false, 
         Name = false, 
         Health = false, 
         Line = false,
+        Skeleton = false,
         SelfColor = false,
         SelfRGB = false,
         SelfColorValue = Color3.fromRGB(220, 220, 220),
@@ -41,6 +43,7 @@ local SAC = {
         FieldOfView = 70,
         Fullbright = false
     },
+
 
     Movement = {
         Spin = false, 
@@ -237,6 +240,26 @@ local function AddSlider(parent, text, min, max, default, callback)
 end
 
 
+local function AddKeybind(parent, text, default, callback)
+    local b = Instance.new("TextButton", parent); b.Size = UDim2.new(0.98, 0, 0, 40); b.Text = "      " .. text; b.BackgroundColor3 = Color3.fromRGB(22, 22, 22); b.TextColor3 = Color3.new(0.9, 0.9, 0.9); b.Font = "GothamSemibold"; b.TextSize = 13; b.TextXAlignment = "Left"; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    local kt = Instance.new("TextLabel", b); kt.Size = UDim2.new(0, 80, 0.6, 0); kt.Position = UDim2.new(1, -90, 0.2, 0); kt.BackgroundColor3 = Color3.fromRGB(30, 30, 30); kt.Text = default.Name; kt.TextColor3 = Color3.fromRGB(80, 80, 255); kt.Font = "GothamBold"; kt.TextSize = 11; Instance.new("UICorner", kt); Instance.new("UIStroke", kt).Color = Color3.fromRGB(50, 50, 255)
+    
+    local binding = false
+    b.MouseButton1Click:Connect(function()
+        binding = true; kt.Text = "..."; kt.TextColor3 = Color3.new(1, 1, 1)
+    end)
+    
+    UserInputService.InputBegan:Connect(function(i)
+        if binding then
+            if i.UserInputType == Enum.UserInputType.Keyboard or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.MouseButton2 or i.UserInputType == Enum.UserInputType.MouseButton3 then
+                binding = false
+                local key = i.KeyCode ~= Enum.KeyCode.Unknown and i.KeyCode or i.UserInputType
+                kt.Text = key.Name; kt.TextColor3 = Color3.fromRGB(80, 80, 255); callback(key)
+            end
+        end
+    end)
+end
+
 local function AddButton(parent, text, callback)
     local b = Instance.new("TextButton", parent); b.Size = UDim2.new(0.98, 0, 0, 38); b.Text = text; b.BackgroundColor3 = Color3.fromRGB(30, 30, 30); b.TextColor3 = Color3.new(1, 1, 1); b.Font = "GothamSemibold"; b.TextSize = 13; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", b).Color = Color3.fromRGB(50, 50, 50)
@@ -244,6 +267,8 @@ local function AddButton(parent, text, callback)
     b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 40)}):Play() end)
     b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play() end)
 end
+
+
 
 local P_Combat = CreatePage("Combat")
 local P_Visuals = CreatePage("Visuals")
@@ -265,10 +290,13 @@ AddToggle(P_Combat, "Aimbot Master", SAC.Combat.Aimbot, function(v) SAC.Combat.A
 AddToggle(P_Combat, "Wall Check (Legit)", SAC.Combat.WallCheck, function(v) SAC.Combat.WallCheck = v end)
 AddToggle(P_Combat, "Triggerbot", SAC.Combat.Triggerbot, function(v) SAC.Combat.Triggerbot = v end)
 AddToggle(P_Combat, "Auto Shoot", SAC.Combat.AutoShoot, function(v) SAC.Combat.AutoShoot = v end)
+AddToggle(P_Combat, "Always Active Mode", SAC.Combat.AimbotAlwaysActive, function(v) SAC.Combat.AimbotAlwaysActive = v end)
+AddKeybind(P_Combat, "Aimbot Keybind", SAC.Combat.AimbotKey, function(v) SAC.Combat.AimbotKey = v end)
 AddToggle(P_Combat, "Show FOV Circle", SAC.Combat.FOVVisible, function(v) SAC.Combat.FOVVisible = v end)
 AddSlider(P_Combat, "Aimbot FOV", 30, 800, 150, function(v) SAC.Combat.FOV = v end)
 AddSlider(P_Combat, "Smoothness", 1, 100, 5, function(v) SAC.Combat.Smoothing = v/100 end)
 AddButton(P_Combat, "Cycle FOV Color", function()
+
     local colors = {Color3.new(1,1,1), Color3.new(1,0,0), Color3.new(0,1,0), Color3.new(0,0,1), Color3.new(1,1,0), Color3.new(1,0,1)}
     local current = 1
     for i, c in ipairs(colors) do if c == SAC.Combat.FOVColorValue then current = i break end end
@@ -280,6 +308,8 @@ AddToggle(P_Visuals, "Box ESP", SAC.Visuals.Box, function(v) SAC.Visuals.Box = v
 AddToggle(P_Visuals, "Player Names", SAC.Visuals.Name, function(v) SAC.Visuals.Name = v end)
 AddToggle(P_Visuals, "Health Bar", SAC.Visuals.Health, function(v) SAC.Visuals.Health = v end)
 AddToggle(P_Visuals, "Snaplines", SAC.Visuals.Line, function(v) SAC.Visuals.Line = v end)
+AddToggle(P_Visuals, "Skeleton ESP", SAC.Visuals.Skeleton, function(v) SAC.Visuals.Skeleton = v end)
+
 AddToggle(P_Visuals, "Fullbright", SAC.Visuals.Fullbright, function(v) SAC.Visuals.Fullbright = v end)
 AddSlider(P_Visuals, "Field Of View", 70, 120, 70, function(v) SAC.Visuals.FieldOfView = v end)
 
@@ -344,11 +374,33 @@ end)
 
 
 
+local R15_K = {
+    {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
+}
+local R6_K = {
+    {"Head", "Torso"}, {"Torso", "Left Arm"}, {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"}, {"Torso", "Right Leg"}
+}
+
 local function GetESP(p)
     if Cache[p] then return Cache[p] end
-    local d = {Box = Drawing.new("Square"), Name = Drawing.new("Text"), HealthBG = Drawing.new("Square"), Health = Drawing.new("Square"), Line = Drawing.new("Line")}
-    for _, v in pairs(d) do v.Thickness = 1; v.Color = Color3.new(1,1,1); v.Visible = false end
+    local d = {
+        Box = Drawing.new("Square"), Name = Drawing.new("Text"), 
+        HealthBG = Drawing.new("Square"), Health = Drawing.new("Square"), 
+        Line = Drawing.new("Line"), Skeleton = {}
+    }
+    for _, v in pairs(d) do if type(v) ~= "table" then v.Thickness = 1; v.Color = Color3.new(1,1,1); v.Visible = false end end
     d.Name.Center = true; d.Name.Outline = true; d.Name.Size = 13
+    
+    for i=1, 15 do 
+        local l = Drawing.new("Line"); l.Thickness = 1; l.Visible = false; l.Color = Color3.new(1,1,1)
+        table.insert(d.Skeleton, l) 
+    end
+    
     Cache[p] = d; return d
 end
 
@@ -360,6 +412,7 @@ local function IsVisible(part, char)
     local result = workspace:Raycast(origin, part.Position - origin, ray)
     return result == nil or result.Instance:IsDescendantOf(char)
 end
+
 
 local lastShot = 0 
 
@@ -398,6 +451,16 @@ RunService.RenderStepped:Connect(function(dt)
     end
 
 
+    -- Trigger Key Check
+    local aim_key_pressed = SAC.Combat.AimbotAlwaysActive
+    if not aim_key_pressed then
+        if SAC.Combat.AimbotKey.Name:find("MouseButton") then
+            aim_key_pressed = UserInputService:IsMouseButtonPressed(SAC.Combat.AimbotKey)
+        else
+            aim_key_pressed = UserInputService:IsKeyDown(SAC.Combat.AimbotKey)
+        end
+    end
+
     for _, p in pairs(Players:GetPlayers()) do
         if p == LocalPlayer then continue end
         local char = p.Character
@@ -418,6 +481,27 @@ RunService.RenderStepped:Connect(function(dt)
                 esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
                 esp.Line.To = Vector2.new(pos.X, pos.Y + (h/2)) 
 
+                -- Skeleton ESP
+                if SAC.Visuals.Skeleton then
+                    local rig = char:FindFirstChild("UpperTorso") and R15_K or R6_K
+                    for i, bone in pairs(rig) do
+                        local b1, b2 = char:FindFirstChild(bone[1]), char:FindFirstChild(bone[2])
+                        local line = esp.Skeleton[i]
+                        if b1 and b2 and line then
+                            local p1, o1 = Camera:WorldToViewportPoint(b1.Position)
+                            local p2, o2 = Camera:WorldToViewportPoint(b2.Position)
+                            if o1 and o2 then
+                                line.Visible = true
+                                line.From = Vector2.new(p1.X, p1.Y)
+                                line.To = Vector2.new(p2.X, p2.Y)
+                                line.Color = SAC.Visuals.EnemyColorValue
+                            else line.Visible = false end
+                        elseif line then line.Visible = false end
+                    end
+                else
+                    for _, l in pairs(esp.Skeleton) do l.Visible = false end
+                end
+
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if SAC.Visuals.Health and hum then
                     esp.HealthBG.Visible = true; esp.Health.Visible = true
@@ -426,7 +510,7 @@ RunService.RenderStepped:Connect(function(dt)
                     esp.Health.Size = Vector2.new(2, hp*h); esp.Health.Position = Vector2.new(pos.X - w/2 - 5, headPos.Y + (h - (hp*h))); esp.Health.Color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), hp)
                 else esp.HealthBG.Visible = false; esp.Health.Visible = false end
 
-                if SAC.Combat.Aimbot and not Main.Visible then
+                if SAC.Combat.Aimbot and not Main.Visible and aim_key_pressed then
                     local sPos, sVis = Camera:WorldToViewportPoint(head.Position)
                     local mag = (Vector2.new(sPos.X, sPos.Y) - mouseLoc).Magnitude
                     
@@ -440,11 +524,18 @@ RunService.RenderStepped:Connect(function(dt)
                         end
                     end
                 end
-            else for _, v in pairs(esp) do v.Visible = false end end
-        else if Cache[p] then for _, v in pairs(Cache[p]) do v.Visible = false end end end
+            else 
+                for _, v in pairs(esp) do if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end end 
+            end
+        else 
+            if Cache[p] then 
+                for _, v in pairs(Cache[p]) do if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end end 
+            end 
+        end
     end
 
-    if target2D and SAC.Combat.Aimbot and not Main.Visible then
+    if target2D and SAC.Combat.Aimbot and not Main.Visible and aim_key_pressed then
+
         local moveX = (target2D.X - mouseLoc.X) * SAC.Combat.Smoothing
         local moveY = (target2D.Y - mouseLoc.Y) * SAC.Combat.Smoothing
         
