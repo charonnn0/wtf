@@ -59,8 +59,10 @@ local SAC = {
         DarkMode = false,
         RGBWorld = false
     },
+    Friends = {}, -- Whitelist for Aimbot and ESP
     Settings = {ResetTimer = 30}
 }
+
 
 
 
@@ -274,7 +276,62 @@ local P_Combat = CreatePage("Combat")
 local P_Visuals = CreatePage("Visuals")
 local P_Move = CreatePage("Movement")
 local P_World = CreatePage("World")
+local P_Players = CreatePage("Players")
 local P_Settings = CreatePage("Settings")
+
+-- Scrollable Player List
+local PlayerScroll = Instance.new("ScrollingFrame", P_Players)
+PlayerScroll.Size = UDim2.new(1, 0, 1, 0); PlayerScroll.BackgroundTransparency = 1; PlayerScroll.ScrollBarThickness = 2
+local PlayerListLayout = Instance.new("UIListLayout", PlayerScroll)
+PlayerListLayout.Padding = UDim.new(0, 5); PlayerListLayout.HorizontalAlignment = "Center"
+
+local function UpdatePlayerList()
+    for _, v in pairs(PlayerScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p == LocalPlayer then continue end
+        local f = Instance.new("Frame", PlayerScroll); f.Size = UDim2.new(0.95, 0, 0, 80); f.BackgroundColor3 = Color3.fromRGB(22, 22, 22); Instance.new("UICorner", f)
+        Instance.new("UIStroke", f).Color = SAC.Friends[tostring(p.UserId)] and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(40, 40, 40)
+        
+        local n = Instance.new("TextLabel", f); n.Size = UDim2.new(0.6, 0, 0, 30); n.Position = UDim2.new(0, 10, 0, 5); n.Text = p.Name; n.Font = "GothamBold"; n.TextSize = 14; n.TextColor3 = Color3.new(1,1,1); n.TextXAlignment = "Left"; n.BackgroundTransparency = 1
+        local det = Instance.new("TextLabel", f); det.Size = UDim2.new(0.6, 0, 0, 20); det.Position = UDim2.new(0, 10, 0, 30); det.Text = "Health: 100% | Dist: 0m"; det.Font = "GothamSemibold"; det.TextSize = 11; det.TextColor3 = Color3.fromRGB(150, 150, 150); det.TextXAlignment = "Left"; det.BackgroundTransparency = 1
+        
+        task.spawn(function()
+            while f and f.Parent do
+                local char = p.Character; local lpchar = LocalPlayer.Character
+                if char and char:FindFirstChildOfClass("Humanoid") and lpchar and lpchar:FindFirstChild("HumanoidRootPart") then
+                    local hp = math.floor(char.Humanoid.Health)
+                    local dist = math.floor((char.HumanoidRootPart.Position - lpchar.HumanoidRootPart.Position).Magnitude)
+                    det.Text = "Health: "..hp.."% | Dist: "..dist.."m"
+                end
+                task.wait(1)
+            end
+        end)
+
+        local btn_tp = Instance.new("TextButton", f); btn_tp.Size = UDim2.new(0, 60, 0, 25); btn_tp.Position = UDim2.new(1, -70, 0, 5); btn_tp.Text = "Goto"; btn_tp.BackgroundColor3 = Color3.fromRGB(30, 30, 30); btn_tp.TextColor3 = Color3.new(1,1,1); btn_tp.Font = "GothamBold"; btn_tp.TextSize = 11; Instance.new("UICorner", btn_tp)
+        local btn_br = Instance.new("TextButton", f); btn_br.Size = UDim2.new(0, 60, 0, 25); btn_br.Position = UDim2.new(1, -70, 0, 32); btn_br.Text = "Bring"; btn_br.BackgroundColor3 = Color3.fromRGB(30, 30, 30); btn_br.TextColor3 = Color3.new(1,1,1); btn_br.Font = "GothamBold"; btn_br.TextSize = 11; Instance.new("UICorner", btn_br)
+        local btn_fr = Instance.new("TextButton", f); btn_fr.Size = UDim2.new(0, 80, 0, 25); btn_fr.Position = UDim2.new(1, -90, 0, 59); btn_fr.Text = SAC.Friends[tostring(p.UserId)] and "Unfriend" or "Whitelist"; btn_fr.BackgroundColor3 = SAC.Friends[tostring(p.UserId)] and Color3.fromRGB(80, 50, 50) or Color3.fromRGB(50, 80, 50); btn_fr.TextColor3 = Color3.new(1,1,1); btn_fr.Font = "GothamBold"; btn_fr.TextSize = 11; Instance.new("UICorner", btn_fr)
+
+        btn_tp.MouseButton1Click:Connect(function()
+            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+            end
+        end)
+        btn_br.MouseButton1Click:Connect(function()
+            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                p.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+            end
+        end)
+        btn_fr.MouseButton1Click:Connect(function()
+            local id = tostring(p.UserId)
+            if SAC.Friends[id] then SAC.Friends[id] = nil else SAC.Friends[id] = true end
+            UpdatePlayerList()
+        end)
+    end
+end
+
+UpdatePlayerList()
+Players.PlayerAdded:Connect(UpdatePlayerList); Players.PlayerRemoving:Connect(UpdatePlayerList)
 
 
 -- Initial Visibility
@@ -386,6 +443,7 @@ local R6_K = {
     {"Torso", "Left Leg"}, {"Torso", "Right Leg"}
 }
 
+
 local function GetESP(p)
     if Cache[p] then return Cache[p] end
     local d = {
@@ -462,8 +520,16 @@ RunService.RenderStepped:Connect(function(dt)
     end
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p == LocalPlayer then continue end
+        if p == LocalPlayer or SAC.Friends[tostring(p.UserId)] then 
+            if Cache[p] then 
+                for _, v in pairs(Cache[p]) do 
+                    if type(v) == "table" then for _, l in pairs(v) do l.Visible = false end else v.Visible = false end 
+                end 
+            end
+            continue 
+        end
         local char = p.Character
+
         if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") then
             local root = char.HumanoidRootPart; local head = char.Head
             local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
