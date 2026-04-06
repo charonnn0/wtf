@@ -140,12 +140,22 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+local function DestroyESP(drawings)
+    for _, obj in pairs(drawings) do
+        if type(obj) == "table" then
+            for _, sub in pairs(obj) do pcall(function() sub:Destroy() end) end
+        else
+            pcall(function() obj:Destroy() end)
+        end
+    end
+end
+
 task.spawn(function()
     while task.wait(SAC.Settings.ResetTimer) do
         if not SHIELD_ENABLED then break end
         for p, drawings in pairs(Cache) do
             if not p or not p.Parent then
-                for _, obj in pairs(drawings) do pcall(function() obj:Destroy() end) end
+                DestroyESP(drawings)
                 Cache[p] = nil
             end
         end
@@ -154,10 +164,11 @@ end)
 
 Players.PlayerRemoving:Connect(function(p)
     if Cache[p] then
-        for _, obj in pairs(Cache[p]) do pcall(function() obj:Destroy() end) end
+        DestroyESP(Cache[p])
         Cache[p] = nil
     end
 end)
+
 
 
 
